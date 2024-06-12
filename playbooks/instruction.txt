@@ -1,0 +1,68 @@
+# 1 Download Prometheus
+wget https://github.com/prometheus/prometheus/releases/download/v2.30.3/prometheus-2.30.3.linux-amd64.tar.gz
+
+# 2 Unzip Prometheus
+tar xvf prom*
+cd prometheus
+
+# 3 Create Prometheus group
+groupadd --system prometheus
+grep prometheus /etc/group
+
+# 4 Create Prometheus user
+useradd -s /sbin/nologin -r -g prometheus prometheus
+id prometheus
+
+# 5 Create prometheus directories
+mkdir -p /etc/prometheus/{rules,rules.d,files_sd}  /var/lib/prometheus
+
+# 6 set permissions
+chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+chmod -R 775 /etc/prometheus/ /var/lib/prometheus/
+# 7 Copy files
+cp prometheus promtool /usr/local/bin/
+ls /usr/local/bin/
+
+# 8 Copy more files
+cp -r consoles/ console_libraries/ /etc/prometheus/
+
+# 9 Create Config File
+vim /etc/systemd/system/prometheus.service
+
+[Unit]
+Description=Prometheus systemd service unit
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=prometheus
+Group=prometheus
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/prometheus \
+--config.file=/etc/prometheus/prometheus.yml \
+--storage.tsdb.path=/var/lib/prometheus \
+--web.console.templates=/etc/prometheus/consoles \
+--web.console.libraries=/etc/prometheus/console_libraries \
+--web.listen-address=0.0.0.0:9090
+
+SyslogIdentifier=prometheus
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+# 10 Create Systemd File
+vim /etc/prometheus/prometheus.yml
+
+global:
+  scrape_interval:     15s # By default, scrape targets every 15 seconds.
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+      # chang localhost and port to variables
+
+# 11 Make sure Prometheus is started
+systemctl start prometheus
+systemctl enable prometheus
